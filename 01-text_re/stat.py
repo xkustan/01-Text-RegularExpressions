@@ -2,21 +2,10 @@ import re
 import sys
 from collections import Counter
 
-# default path
-path = "scorelib.txt"
-
 # composers
 
-def clean_composer(raw_name):
-    only_name = raw_name.split("(")[0].strip()
-    surname, *rest = only_name.split(" ")
-    initials = ""
-    for name in rest:
-        if name.strip()[-1] == ".":
-            initials += name
-        else:
-            initials += "%s." % name[0]
-    return "%s %s" % (surname, initials)
+def get_composer(raw_name):
+    return raw_name.split("(")[0].strip()
 
 
 def count_composers():
@@ -29,9 +18,18 @@ def count_composers():
             parsed_names = parse_line(composer_pattern, line)
             if not parsed_names or parsed_names.strip() == "":
                 continue
-            for parsed_name in parsed_names.split("; "):
-                name = clean_composer(parsed_name)
-                counter[name] += 1
+            if "&" in parsed_names:
+                for parsed_name in parsed_names.split("&"):
+                    name = get_composer(parsed_name)
+                    counter[name] += 1
+            elif "r/F" in parsed_names:
+                for parsed_name in parsed_names.split("/"):
+                    name = get_composer(parsed_name)
+                    counter[name] += 1
+            else:
+                for parsed_name in parsed_names.split(";"):
+                    name = get_composer(parsed_name)
+                    counter[name] += 1
 
     return counter
 
