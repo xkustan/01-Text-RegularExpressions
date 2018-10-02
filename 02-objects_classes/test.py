@@ -2,8 +2,6 @@ from scorelib import Print
 import re
 import sys
 
-FILE_PATH = "scorelib.txt"
-
 
 def parse_text(pattern, line):
     parsed_line = re.match(pattern, line)
@@ -82,10 +80,10 @@ def load(file_path):
                 p.edition.composition.set_year(parsed_value)
 
             if parsed_type == "edition":
-                pass
+                p.edition.add_name(parsed_value)
 
             if parsed_type == "editor":
-                pass
+                p.edition.add_authors(parsed_value)
 
             if parsed_type == "voice":
                 p.edition.composition.add_voice(parsed_value)
@@ -109,15 +107,13 @@ if __name__ == "__main__":
     if len(sys.argv) != 2:
         sys.exit("First argument should be path to library file!")
 
-    # filename = sys.argv[1]  # TODO: uncomment
-    filename = FILE_PATH
+    filename = sys.argv[1]
 
     try:
         list_of_prints = load(filename)
 
-        for print_object in list_of_prints[:20]:
+        for print_object in list_of_prints:
             print_object.format()
-            # print()
 
     except FileNotFoundError:
         print("Bad path to library file")
