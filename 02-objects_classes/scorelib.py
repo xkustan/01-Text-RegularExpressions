@@ -39,16 +39,31 @@ class Composer(Person):
         if parsed:
             b, d = parsed.group().split("--")
             self.born, self.died = int(b), int(d)
+            return
 
         # born start with *
         parsed = re.search("\*\d\d\d\d", text_composer)
         if parsed:
             self.born = int(parsed.group()[1:6])
+            return
 
         # died start with +
         parsed = re.search("\+\d\d\d\d", text_composer)
         if parsed:
             self.died = int(parsed.group()[1:6])
+            return
+
+        parsed = re.search("(None--\d\d\d\d)", text_composer)
+        if parsed:
+            b, d = parsed.group().split("--")
+            self.born, self.died = None, int(d)
+            return
+
+        parsed = re.search("(\d\d\d\d--None)", text_composer)
+        if parsed:
+            b, d = parsed.group().split("--")
+            self.born, self.died = int(b), None
+            return
 
 
 class Voice(object):
@@ -144,9 +159,9 @@ class Edition(object):
     def add_authors(self, text_value):
         text_value = text_value.strip()
         if "continuo by" in text_value:
-            editors = [e.strip() for e in text_value.split("continuo by")]
+            editors = [e.strip() for e in text_value.split(", continuo by")]
         elif "continuo" in text_value:
-            editors = [e.strip() for e in text_value.split("continuo")]
+            editors = [e.strip() for e in text_value.split(", continuo")]
         elif "," in text_value:
             editors = []
             edis = [e.strip() for e in text_value.split(",")]
