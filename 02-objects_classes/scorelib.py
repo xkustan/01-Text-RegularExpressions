@@ -18,7 +18,9 @@ class Editor(Person):
 
     def create_from_text(self, text_editor):
         tmp_name, *rest = text_editor.split("(")
-        self.name = tmp_name.strip()
+        self.name = tmp_name.strip().strip("[").strip("]")
+        if self.name.strip() == "":
+            self.name = None
 
 
 class Composer(Person):
@@ -26,8 +28,11 @@ class Composer(Person):
         Person.__init__(self, name, born, died, "composer")
 
     def create_from_text(self, text_composer):
+        text_composer = text_composer.strip()
         tmp_name, *rest = text_composer.split("(")
         self.name = tmp_name.strip()
+        if self.name.strip() == "":
+            self.name = None
 
         # normal range
         parsed = re.search("(\d\d\d\d--\d\d\d\d)", text_composer)
@@ -60,7 +65,12 @@ class Voice(object):
             self.name = "".join(temp_name).strip()
             self.range = temp_range.strip()
         else:
-            self.name = text_voice.strip()
+            text_voice = text_voice.strip()
+            if text_voice.startswith("None, "):
+                self.range = None
+                self.name = text_voice.lstrip("None,").strip()
+            else:
+                self.name = text_voice
 
 
 class Composition(object):
@@ -80,13 +90,16 @@ class Composition(object):
             composers = [c.strip() for c in text_value.split("/")]
         elif "&" in text_value:
             composers = [c.strip() for c in text_value.split("&")]
+        elif text_value.strip()[0] == "[":
+            composers = [c.strip() for c in text_value.strip()[1:-1].split("),")]
         else:
             composers = [text_value.strip()]
 
         for comp in composers:
             composer = Composer()
             composer.create_from_text(comp)
-            self.authors.append(composer)
+            if composer.name:
+                self.authors.append(composer)
 
     def set_name(self, text_value):
         self.name = text_value
@@ -148,7 +161,8 @@ class Edition(object):
         for edo in editors:
             editor = Editor()
             editor.create_from_text(edo)
-            self.authors.append(editor)
+            if editor.name:
+                self.authors.append(editor)
 
 
 class Print(object):
@@ -169,6 +183,11 @@ class Print(object):
         for i, voice in enumerate(self.edition.composition.voices):
             voice_prints.append(VOICE_TEMPLATE.format(i + 1, voice))
 
+        if voice_prints:
+            printed_voice = "\n" + "\n".join(voice_prints)
+        else:
+            printed_voice = ""
+
         to_print = PRINT_TEMPLATE.format(
             self.print_id,
             self.edition.composition.authors,
@@ -178,7 +197,7 @@ class Print(object):
             self.edition.composition.year,
             self.edition.name,
             self.edition.authors,
-            "\n".join(voice_prints),
+            printed_voice,
             self.partiture,
             self.edition.composition.incipit,
         )
@@ -186,25 +205,124 @@ class Print(object):
         print(to_print)
 
     def set_partiture_from_text(self, text_value):
-        if text_value.strip() == "yes":
+        if text_value.strip() in ("yes", "True"):
             self.partiture = True
-        elif text_value.strip() == "no":
+        elif text_value.strip() in ("no", "False"):
             self.partiture = False
         else:
             self.partiture = None
 
 
-PRINT_TEMPLATE = """
-Print Number: {0}
+def parse_text(pattern, line):
+    parsed_line = re.match(pattern, line)
+    if parsed_line:
+        parsed_text = parsed_line.group(2)
+        parsed_text = parsed_text.strip() if parsed_text else None
+        if parsed_text == "":
+            return None
+        return parsed_text
+
+
+def parse_line(line):
+    patterns = {
+        "print": re.compile("(Print Number: )(.*)"),
+        "composer": re.compile("(Composer: )(.*)"),
+        "title": re.compile("(Title: )(.*)"),
+        "genre": re.compile("(Genre: )(.*)"),
+        "key": re.compile("(Key: )(.*)"),
+        "composition_year": re.compile("(Composition Year: )(.*)"),
+        "edition": re.compile("(Edition: )(.*)"),
+        "editor": re.compile("(Editor: )(.*)"),
+        "voice": re.compile("(Voice \d: )(.*)"),
+        "partiture": re.compile("(Partiture: )(.*)"),
+        "incipit": re.compile("(Incipit: )(.*)"),
+    }
+
+    if line == "\n":
+        return {
+            "type": "newline",
+            "value": None,
+        }
+
+    for line_type, pattern in patterns.items():
+        parsed_line = parse_text(pattern, line)
+        if parsed_line:
+            return {
+                "type": line_type,
+                "value": parsed_line,
+            }
+
+
+def load(file_path):
+    prints = []
+
+    with open(file_path, "r") as file:
+
+        p = None
+
+        for line in file:
+
+            parsed = parse_line(line)
+
+            if not parsed:
+                continue
+
+            parsed_type = parsed["type"]
+            parsed_value = parsed["value"]
+
+            if parsed_type == "print":
+                p = Print(parsed_value)
+                prints.append(p)
+
+            if parsed_type == "composer":
+                p.edition.composition.set_composers(parsed_value)
+
+            if parsed_type == "title":
+                p.edition.composition.set_name(parsed_value)
+
+            if parsed_type == "genre":
+                p.edition.composition.set_genre(parsed_value)
+
+            if parsed_type == "key":
+                p.edition.composition.set_key(parsed_value)
+
+            if parsed_type == "composition_year":
+                p.edition.composition.set_year(parsed_value)
+
+            if parsed_type == "edition":
+                p.edition.add_name(parsed_value)
+
+            if parsed_type == "editor":
+                p.edition.add_authors(parsed_value)
+
+            if parsed_type == "voice":
+                p.edition.composition.add_voice(parsed_value)
+
+            if parsed_type == "partiture":
+                p.set_partiture_from_text(parsed_value)
+
+            if parsed_type == "incipit":
+                p.edition.composition.set_incipit(parsed_value)
+
+            # just to be sure
+            if parsed_type == "newline":
+                p = None
+
+        file.close()
+
+    return prints
+
+
+PRINT_TEMPLATE = """Print Number: {0}
 Composer: {1}
 Title: {2}
 Genre: {3}
 Key: {4}
 Composition Year: {5} 
 Edition: {6}
-Editor: {7}
-{8}
+Editor: {7}{8}
 Partiture: {9}
-Incipit: {10}"""
+Incipit: {10}
+"""
 
-VOICE_TEMPLATE = "Voice {0}: {1}"
+VOICE_TEMPLATE = """Voice {0}: {1}"""
