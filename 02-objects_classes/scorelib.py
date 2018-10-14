@@ -286,7 +286,7 @@ def load(file_path):
             parsed_value = parsed["value"]
 
             if parsed_type == "print":
-                p = Print(parsed_value)
+                p = Print(int(parsed_value))
                 prints.append(p)
 
             if parsed_type == "composer":
