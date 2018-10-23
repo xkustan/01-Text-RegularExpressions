@@ -1,3 +1,4 @@
+from collections import defaultdict
 import json
 import sqlite3
 import sys
@@ -90,15 +91,6 @@ def process_print(cur, print_id):
                 "range": row[14]
             }
 
-        if not row[1] and (row[2] or row[3]):
-            print("FATAL ERROR COMPOSER: ", row)
-
-        if not row[9] and (row[10] or row[11]):
-            print("FATAL ERROR EDITOR: ", row)
-
-        if not row[12] and (row[13] or row[14]):
-            print("FATAL ERROR VOICE: ", row)
-
     p["Composer"] = [dict(x) for x in p["Composer"]]
     p["Editor"] = [dict(x) for x in p["Editor"]]
 
@@ -110,11 +102,12 @@ def search_composer(db, composer_substring):
     cur = con.cursor()
     cur.execute(GET_PRINT_ID_BY_COMPOSER_SQL, (composer_substring,))
     all_print_ids = sorted([x[0] for x in cur.fetchall()])
-    all_prints = []
+    all_prints = defaultdict(list)
 
     for print_id in all_print_ids:
         full_print = process_print(cur, print_id)
-        all_prints.append(full_print)
+        for comp in full_print["Composer"]:
+            all_prints[comp["name"]].append(full_print)
 
     json.dump(all_prints, sys.stdout, indent=4, ensure_ascii=False)
 
@@ -126,4 +119,7 @@ if __name__ == '__main__':
     db_path = "scorelib.dat"
     composer = sys.argv[1]
 
-    search_composer(db_path, composer)
+    try:
+        search_composer(db_path, composer)
+    except:
+        sys.exit("Make sure you have valid sqlite database in this directory named scorelib.dat")
