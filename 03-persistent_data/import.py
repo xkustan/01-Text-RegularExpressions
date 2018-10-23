@@ -109,4 +109,4 @@ if __name__ == '__main__':
 
     init_database(db_path)
     fill_database_with_data(db_path, filename)
-    test_selects(db_path)
+    #test_selects(db_path)
