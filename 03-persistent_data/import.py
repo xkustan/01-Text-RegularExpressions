@@ -40,7 +40,39 @@ def test_selects(db):
         print(table, len(result), result[:5])
 
 
+def check_full_duplicates(db_conn, p):
+    get_sql = """SELECT edition.id, * FROM edition
+      left join score on edition.score = score.id
+      left join voice on score.id = voice.score 
+      left join score_author on score.id = score_author.score
+      left join person on score_author.composer = person.id
+      WHERE ifnull(edition.name, '') = ?
+      AND score.name = ? AND ifnull(score.genre, '') = ? AND ifnull(score.key, '') = ? AND ifnull(score.incipit, '') = ? 
+      AND ifnull(score.year, 0) = ? AND ifnull(voice.range, '') = ? AND ifnull(voice.name, '') = ?
+      AND person.name = ?;"""
+
+    cur = db_conn.cursor()
+    cur.execute(get_sql, (
+        p.edition.name if p.edition.name else '',
+        p.edition.composition.name,
+        p.edition.composition.genre if p.edition.composition.genre else '',
+        p.edition.composition.key if p.edition.composition.key else '',
+        p.edition.composition.incipit if p.edition.composition.incipit else '',
+        p.edition.composition.year if p.edition.composition.year else 0,
+        p.edition.composition.voices[0].range if p.edition.composition.voices and p.edition.composition.voices[0].range else '',
+        p.edition.composition.voices[0].name if p.edition.composition.voices and p.edition.composition.voices[0].name else '',
+        p.edition.composition.authors[0].name if p.edition.composition.authors and p.edition.composition.authors[0].name else ''
+    ))
+
+    duplicate = cur.fetchall()
+    if duplicate:
+        return duplicate[0][0]  # edition_id
+    else:
+        return None
+
+
 def process_print(db_conn, p):
+    edition_id = check_full_duplicates(db_conn, p)
     # store authors (person)
     composers_ids = []
     for composer in p.edition.composition.authors:
@@ -53,11 +85,10 @@ def process_print(db_conn, p):
         editors_ids.append(editor_id)
 
     # score + score_author + voice
-    score_id = p.edition.composition.insert_to_db(db_conn, composers_ids)
-
-    # edition + edition_author
-    edition_id = p.edition.insert_to_db(db_conn, score_id, editors_ids)
-
+    if not edition_id:
+        score_id = p.edition.composition.insert_to_db(db_conn, composers_ids)
+        # edition + edition_author
+        edition_id = p.edition.insert_to_db(db_conn, score_id, editors_ids)
     # print
     p.save_to_db(db_conn, edition_id)
 
@@ -78,4 +109,4 @@ if __name__ == '__main__':
 
     init_database(db_path)
     fill_database_with_data(db_path, filename)
-    # test_selects(db_path)
+    test_selects(db_path)

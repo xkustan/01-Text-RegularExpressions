@@ -10,7 +10,7 @@ CREATE_EMPTY_DB = [
                      genre varchar,
                      key varchar,
                      incipit varchar,
-                     year integer );""",
+                     year integer);""",
     """create table voice ( id integer primary key not null,
                      number integer not null,
                      score integer references score( id ) not null,
@@ -31,12 +31,10 @@ CREATE_EMPTY_DB = [
                      edition integer references edition( id ) );"""
 ]
 
+
 DEFINED_CONSTRAINTS = [
     """CREATE UNIQUE INDEX person_name_unique_index ON person(name);""",
-    """CREATE UNIQUE INDEX score_unique_index ON score(name, genre, key, incipit, year);""",
     """CREATE UNIQUE INDEX score_author_unique_index ON score_author(score, composer);""",
-    """CREATE UNIQUE INDEX edition_unique_index ON edition(score, name, year);""",
-    """CREATE UNIQUE INDEX edition_author_unique_index ON edition_author(edition, editor);""",
-    """CREATE UNIQUE INDEX voice_unique_index ON voice(number, score, range, name);""",
+    """CREATE UNIQUE INDEX voice_unique_index ON voice(number, score, ifnull(range, ''), ifnull(name, ''));""",
     """CREATE UNIQUE INDEX print_unique_index ON print(id);""",
 ]

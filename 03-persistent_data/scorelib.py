@@ -165,8 +165,27 @@ class Composition(object):
 
     def insert_to_db(self, db_conn, composer_ids):
         cur = db_conn.cursor()
-        insert_sql = "INSERT INTO score(name, genre, key, incipit, year) VALUES (?, ?, ?, ?, ?);"
+
+        get_sql = """SELECT * FROM score left join voice on score.id = voice.score 
+          WHERE score.name = ? AND ifnull(genre, '') = ? AND ifnull(key, '') = ? AND ifnull(incipit, '') = ? 
+          AND ifnull(year, 0) = ? AND ifnull(range, '') = ? AND ifnull(voice.name, '') = ?;"""
+        cur.execute(get_sql, (
+            self.name,
+            self.genre if self.genre else '',
+            self.key if self.key else '',
+            self.incipit if self.incipit else '',
+            self.year if self.year else 0,
+            self.voices[0].range if self.voices and self.voices[0].range else '',
+            self.voices[0].name if self.voices and self.voices[0].name else ''
+        ))
+
+        score_voice = cur.fetchall()
+        if score_voice:
+            score_id = score_voice[0][0]
+            return score_id
+
         try:
+            insert_sql = "INSERT INTO score(name, genre, key, incipit, year) VALUES (?, ?, ?, ?, ?);"
             cur.execute(insert_sql, (self.name, self.genre, self.key, self.incipit, self.year))
             db_conn.commit()
             score_id = cur.lastrowid
@@ -226,21 +245,18 @@ class Edition(object):
 
     def insert_to_db(self, db_conn, score_id, editor_ids):
         cur = db_conn.cursor()
+
         insert_sql = "INSERT INTO edition(score, name, year) VALUES (?, ?, null);"
-        try:
-            cur.execute(insert_sql, (score_id, self.name))
+        cur.execute(insert_sql, (score_id, self.name))
+        db_conn.commit()
+        edition_id = cur.lastrowid
+
+        # store relation info into score_author table
+        for editor in editor_ids:
+            cur.execute("INSERT INTO edition_author(edition, editor) VALUES (?, ?);", (edition_id, editor))
             db_conn.commit()
-            edition_id = cur.lastrowid
 
-            # store relation info into score_author table
-            for editor in editor_ids:
-                cur.execute("INSERT INTO edition_author(edition, editor) VALUES (?, ?);", (edition_id, editor))
-                db_conn.commit()
-
-            return edition_id
-
-        except IntegrityError:
-            print("INTEGRITY ERROR!")
+        return edition_id
 
 
 class Print(object):
@@ -302,6 +318,22 @@ class Print(object):
 
         except IntegrityError:
             print("INTEGRITY ERROR!")
+
+    def my_hash(self):
+        voices = "-".join([str(x) for x in self.edition.composition.voices]).replace(" ", "")
+        authors = "-".join([str(x) for x in self.edition.composition.authors]).replace(" ", "")
+        editors = "-".join([str(x) for x in self.edition.authors]).replace(" ", "")
+        return "_".join([
+            authors,
+            self.edition.composition.name or "",
+            self.edition.composition.genre or "",
+            self.edition.composition.key or "",
+            self.edition.composition.year or "",
+            self.edition.composition.incipit or "",
+            self.edition.name or "",
+            editors,
+            voices
+        ]).replace(" ", "")
 
 
 def parse_text(pattern, line):
