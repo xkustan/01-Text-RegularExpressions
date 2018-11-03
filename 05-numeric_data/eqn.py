@@ -13,7 +13,7 @@ def parse_equation(equation, variables):
     matrix_list = []
 
     sign = ""
-    for x in matrix_part.split(" "):
+    for x in matrix_part.split():
         if x in {"+", "-"}:
             sign = x
         else:
