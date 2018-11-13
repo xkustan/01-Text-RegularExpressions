@@ -87,14 +87,44 @@ def generate_chunks(sequence, rate):
         yield sequence[i:i + window_size]
 
 
-def get_top_peaks(sample, number_of_peaks=3):
+def grouper(iterable):
+    prev = None
+    group = []
+    for item in iterable:
+        if not prev or item - prev <= 1:
+            group.append(item)
+        else:
+            yield group
+            group = [item]
+        prev = item
+    if group:
+        yield group
+
+
+def get_clusters(numbers):
+    return dict(enumerate(grouper(numbers), 1))
+
+
+def get_top_peaks(sample, number_of_peaks=3):  # TODO clustering
     ft = numpy.fft.rfft(sample)
-    ft = numpy.abs(ft)
-    average_amplitude = numpy.mean(ft)
+    amplitudes = numpy.abs(ft)
+    average_amplitude = numpy.mean(amplitudes)
     threshold_amplitude = 20 * average_amplitude
-    peaks = numpy.argwhere(ft >= threshold_amplitude)
+    peaks = numpy.argwhere(amplitudes >= threshold_amplitude)
     peaks_indices = [x[0] for x in peaks]
-    sorted_peaks = sorted(peaks_indices, reverse=True)
+    # clusters
+    top_peaks = []
+    peak_clusters = get_clusters(peaks_indices)
+    for i, cluster in peak_clusters.items():
+        tmp_max_amplitude = numpy.NINF
+        tmp_index = None
+        for c in cluster:
+            if amplitudes[c] > tmp_max_amplitude:
+                tmp_max_amplitude = amplitudes[c]
+                tmp_index = c
+        top_peaks.append(tmp_index)
+
+    sorted_peaks = sorted(top_peaks, reverse=True)
 
     return sorted_peaks[:number_of_peaks]
 
