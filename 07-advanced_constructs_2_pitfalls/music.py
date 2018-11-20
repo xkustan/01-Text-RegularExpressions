@@ -87,46 +87,32 @@ def generate_chunks(sequence, rate):
         yield sequence[i:i + window_size]
 
 
-def grouper(iterable):
-    prev = None
-    group = []
-    for item in iterable:
-        if not prev or item - prev <= 1:
-            group.append(item)
-        else:
-            yield group
-            group = [item]
-        prev = item
-    if group:
-        yield group
-
-
-def get_clusters(numbers):
-    return dict(enumerate(grouper(numbers), 1))
-
-
-def get_top_peaks(sample, number_of_peaks=3):  # TODO clustering
+def get_top_peaks(sample, number_of_peaks=3):
     ft = numpy.fft.rfft(sample)
     amplitudes = numpy.abs(ft)
     average_amplitude = numpy.mean(amplitudes)
     threshold_amplitude = 20 * average_amplitude
     peaks = numpy.argwhere(amplitudes >= threshold_amplitude)
     peaks_indices = [x[0] for x in peaks]
-    # clusters
+    if not peaks_indices:
+        return []
+
     top_peaks = []
-    peak_clusters = get_clusters(peaks_indices)
-    for i, cluster in peak_clusters.items():
-        tmp_max_amplitude = numpy.NINF
-        tmp_index = None
-        for c in cluster:
-            if amplitudes[c] > tmp_max_amplitude:
-                tmp_max_amplitude = amplitudes[c]
-                tmp_index = c
-        top_peaks.append(tmp_index)
+    temp_cluster = []
+    old_freq = None
 
-    sorted_peaks = sorted(top_peaks, reverse=True)
+    peaks = sorted([(peak_f, amplitudes[peak_f]) for peak_f in peaks_indices])
+    for freq, amplitude in peaks:
+        old_freq = freq if not old_freq else old_freq
+        if freq - old_freq > 1:
+            top_peaks.append(sorted(temp_cluster, key=lambda x: x[1], reverse=True)[0])
+            temp_cluster = []
+        temp_cluster.append((freq, amplitude))
+        old_freq = freq
+    top_peaks.append(sorted(temp_cluster, key=lambda x: x[1], reverse=True)[0])
 
-    return sorted_peaks[:number_of_peaks]
+    sorted_peaks = sorted(top_peaks, key=lambda x: x[1], reverse=True)
+    return sorted([x[0] for x in sorted_peaks[:3]])
 
 
 def compose_pitches_from_peaks(peaks, a4_frequency):
@@ -143,20 +129,27 @@ def compose_pitches_from_peaks(peaks, a4_frequency):
 def analyse_wav(data, fr, a4_frequency):
 
     current_time = 0.0
-    pitch_to_time = defaultdict(list)
+    pitch_to_time = defaultdict(lambda: defaultdict(list))
+    current = 0
+    previous_pitch = None
 
     for chunk in generate_chunks(data, fr):
         current_time += sliding_window
         top_peaks = get_top_peaks(chunk)
         my_pitch = compose_pitches_from_peaks(top_peaks, a4_frequency)
-        pitch_to_time[my_pitch].append(round(current_time, 1))
+
+        if my_pitch != previous_pitch:
+            current += 1
+            previous_pitch = my_pitch
+        pitch_to_time[current][my_pitch].append(round(current_time, 1))
 
     time_to_pitch = defaultdict(str)
 
-    for pitch, all_times in pitch_to_time.items():
-        min_time = round(min(all_times) - sliding_window, 1)
-        max_time = max(all_times)
-        time_to_pitch["{}-{}".format("%04.1f" % min_time, "%04.1f" % max_time)] = pitch
+    for c, pitch_times in pitch_to_time.items():
+        for pitch, all_times in pitch_times.items():
+            min_time = round(min(all_times) - sliding_window, 1)
+            max_time = max(all_times)
+            time_to_pitch["{}-{}".format("%04.1f" % min_time, "%04.1f" % max_time)] = pitch
 
     for t, p in sorted(time_to_pitch.items()):
         if p == "no peaks":
