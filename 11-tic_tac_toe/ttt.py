@@ -158,8 +158,5 @@ if __name__ == '__main__':
     if len(sys.argv) != 2:
         sys.exit("First argument must be port!")
 
-    my_port = sys.argv[1]
-    if int(my_port) < 9001:
-        sys.exit("Port must be 9001 above")
-
+    my_port = int(sys.argv[1])
     run_app(my_port)
