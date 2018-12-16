@@ -39,6 +39,49 @@ def test_selects(db):
         result = cur.fetchall()
         print(table, len(result), result[:5])
 
+    # check voice of print 21
+    cur.execute("""
+        SELECT p.id, v.name
+        FROM print as p 
+        left join edition as e on p.edition = e.id 
+        left join score as s on e.score = s.id
+        left join voice as v on s.id = v.score 
+        where p.id = 21;
+        --and v.number = 1;
+    """)
+    result = cur.fetchall()
+    print("RR: ", result)
+
+    # check 682 and 683 scores
+    cur.execute("""
+        SELECT p.id, s.id
+        FROM print as p 
+        left join edition as e on p.edition = e.id 
+        left join score as s on e.score = s.id
+        where (p.id = 682 or p.id = 683);
+    """)
+    result = cur.fetchall()
+    print("RR: ", result)
+
+    # check print authors
+    cur.execute("""
+        SELECT p.id, per.name
+        FROM print as p 
+        left join edition as e on p.edition = e.id 
+        left join score as s on e.score = s.id
+        left join score_author as sa on s.id = sa.score
+        left join person as per on sa.composer = per.id
+        where p.id = 713 ;
+    """)
+    result = cur.fetchall()
+    print("RR: ", result)
+
+    # check pivonka karel
+    for name in {"karel", "Mario Bolognani", "Antonio Fanna"}:
+        cur.execute("""SELECT * FROM person where lower(name) like '%{0}%';""".format(name))
+        result = cur.fetchall()
+        print("RR: ", result)
+
 
 def check_full_duplicates(db_conn, p):
     get_sql = """SELECT edition.id, * FROM edition
@@ -109,4 +152,4 @@ if __name__ == '__main__':
 
     init_database(db_path)
     fill_database_with_data(db_path, filename)
-    #test_selects(db_path)
+    # test_selects(db_path)

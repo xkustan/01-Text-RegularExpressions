@@ -97,8 +97,11 @@ class Voice(object):
 
     def create_from_text(self, text_voice):
         if "--" in text_voice:
-            temp_range, *temp_name = text_voice.split(",")
-            self.name = "".join(temp_name).strip()
+            temp_range, *temp_name = text_voice.split(",", maxsplit=1)
+            if temp_name:
+                self.name = temp_name[0].strip()
+            else:
+                self.name = None
             self.range = temp_range.strip()
         else:
             text_voice = text_voice.strip()
