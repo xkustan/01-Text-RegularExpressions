@@ -13,6 +13,9 @@ def validate_url(raw_url=None):
     if "http://" not in raw_url:
         raw_url = "http://" + raw_url
 
+    if "localhost" in raw_url:
+        raw_url = "http://localhost:" + sys.argv[1]
+
     return raw_url
 
 
@@ -91,9 +94,9 @@ async def forward_request(fwd_url, fwd_headers, fwd_type, fwd_content=None, fwd_
 
 def run_app(port):
     app = web.Application()
-    app.add_routes([web.get('/', get_handler),
-                    web.post('/', post_handler)])
-    web.run_app(app, port=port)
+    app.add_routes([web.get('/{tail:.*}', get_handler),
+                    web.post('/{tail:.*}', post_handler)])
+    web.run_app(app, host='localhost', port=port)
 
 
 if __name__ == '__main__':
