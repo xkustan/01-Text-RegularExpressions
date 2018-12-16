@@ -102,7 +102,7 @@ async def status_handler(request):
     except KeyError:
         return web.HTTPNotFound(text="unknown game id")
 
-    if game.winner:
+    if game.winner is not None:
         res = {"winner": game.winner}
     else:
         res = {"board": game.board, "next": game.next_player}
@@ -146,11 +146,45 @@ async def play_handler(request):
     return web.json_response(res)
 
 
+async def test_handler(request):
+    try:
+        game_id = int(request.rel_url.query["game"])
+    except (KeyError, ValueError):
+        return web.HTTPBadRequest(text="specify valid game id, it must be an integer")
+
+    try:
+        game = GAMES[game_id]
+    except KeyError:
+        return web.HTTPNotFound(text="unknown game id")
+
+    try:
+        next_player = int(request.rel_url.query["next_player"])
+        if next_player not in {1, 2}:
+            raise ValueError
+    except (KeyError, ValueError):
+        return web.HTTPBadRequest(text="specify valid player, it must be an integer - 1 or 2")
+
+    try:
+        board_setup = request.rel_url.query["board_setup"]
+        data_list = [int(x) for x in board_setup]
+        game.board = [data_list[i:i + 3] for i in range(0, len(data_list), 3)]
+        game.next_player = next_player
+        res = {"status": "ok", "board": game.board, "next_player": game.next_player}
+    except (ValueError, RuntimeError) as msg:
+        res = {
+            "status": "bad",
+            "message": str(msg),
+        }
+
+    return web.json_response(res)
+
+
 def run_app(port):
     app = web.Application()
     app.add_routes([web.get('/start', start_handler),
                     web.get('/status', status_handler),
-                    web.get('/play', play_handler)])
+                    web.get('/play', play_handler),
+                    web.get('/test_setup', test_handler)])
     web.run_app(app, port=port)
 
 
@@ -159,4 +193,6 @@ if __name__ == '__main__':
         sys.exit("First argument must be port!")
 
     my_port = int(sys.argv[1])
+    if my_port < 1 or my_port > 65535:
+        sys.exit("Invalid port!")
     run_app(my_port)
