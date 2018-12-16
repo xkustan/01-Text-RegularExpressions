@@ -86,7 +86,7 @@ async def start_handler(request):
     name = request.rel_url.query.get("name", "")
     GAMES[game_id] = TicTacToe()
 
-    res = {"id": game_id, "name": name}
+    res = {"id": game_id}
 
     return web.json_response(res)
 
