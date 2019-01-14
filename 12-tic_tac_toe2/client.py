@@ -62,7 +62,7 @@ class Game(object):
         return "game_" + str(uuid.uuid4())
 
     def print_info(self):
-        print(f'Game {self.name} with id: {self.id}')
+        print(f'{self.id} {self.name}')
 
     def refresh_status(self, srv_status):
         if "board" in srv_status:
@@ -168,7 +168,9 @@ async def cli_ui():
 
     while True:
         if game.status == "end":
-            if games.player == game.winner:
+            if game.winner == 0:
+                print("draw")
+            elif game.winner == games.player:
                 print("you win")
             else:
                 print("you lose")
@@ -196,8 +198,6 @@ async def cli_ui():
 
         game_server_status = await rq_session.get_game_status(game.id)
         game.refresh_status(game_server_status)
-
-    sys.exit()
 
 
 def run_game():
